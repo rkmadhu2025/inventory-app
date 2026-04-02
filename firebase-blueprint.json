@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Device": {
+      "title": "Infrastructure Device",
+      "description": "A network device in the infrastructure inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "vendor": { "type": "string" },
+        "model": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Warning", "Offline"] },
+        "site": { "type": "string" },
+        "rack": { "type": "string" },
+        "uPosition": { "type": "string" },
+        "ip": { "type": "string" },
+        "mask": { "type": "string" },
+        "gateway": { "type": "string" },
+        "vlan": { "type": "string" },
+        "serial": { "type": "string" },
+        "firmware": { "type": "string" },
+        "uptime": { "type": "string" },
+        "cpu": { "type": "string" },
+        "memory": { "type": "string" },
+        "temp": { "type": "string" },
+        "ports": { "type": "string" },
+        "lastBackup": { "type": "string" },
+        "owner": { "type": "string" },
+        "criticality": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+        "purchaseDate": { "type": "string" },
+        "warrantyExpiry": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "vendor", "model", "type", "status", "site"]
+    },
+    "ChatMessage": {
+      "title": "AI Chat Message",
+      "description": "A message in the AI assistant conversation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content", "timestamp"]
+    },
+    "AuditLog": {
+      "title": "Audit Log Entry",
+      "description": "A log of actions performed in the system.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "resource": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/infrastructure": {
+      "schema": "Device",
+      "description": "Global infrastructure inventory."
+    },
+    "/chats/{chatId}/messages": {
+      "schema": "ChatMessage",
+      "description": "User-specific AI chat history."
+    },
+    "/audit_logs": {
+      "schema": "AuditLog",
+      "description": "System-wide audit logs."
+    }
+  }
+}

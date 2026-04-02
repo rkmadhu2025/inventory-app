@@ -1,5 +1,5 @@
 {
   "name": "NetConfig Pro",
-  "description": "Multi-Tenant SaaS Network Inventory and Configuration Management Platform",
-  "requestFramePermissions": []
+  "description": "Multi-Tenant SaaS Network Inventory and Configuration Management Platform with Gemini AI Assistant",
+  "requestFramePermissions": ["microphone"]
 }

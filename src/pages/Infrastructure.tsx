@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -8,13 +8,15 @@ import {
   Search, Filter, Network, Server, Shield, 
   ArrowRight, ArrowLeft, ExternalLink, Info, Layers, 
   Database, Activity, Globe, Zap, Cpu, HardDrive, Fan,
-  CheckCircle2, AlertTriangle, XCircle, ShoppingCart, Clock
+  CheckCircle2, AlertTriangle, XCircle, ShoppingCart, Clock, X, Package,
+  MoreVertical, RefreshCw, ChevronDown, ChevronRight, Network as NetworkIcon, ShieldCheck
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { db, collection, onSnapshot, query, setDoc, doc } from '../firebase';
 
-const infrastructureDevices = [
+const initialInfrastructureDevices = [
   { 
     id: 'INF-101', 
     name: 'Core-SW-01', 
@@ -23,7 +25,12 @@ const infrastructureDevices = [
     type: 'Switch', 
     status: 'Active', 
     site: 'DC-A',
+    rack: 'R-01',
+    uPosition: '12U',
     ip: '10.0.1.1',
+    mask: '255.255.255.0',
+    gateway: '10.0.1.254',
+    vlan: '10 (Management)',
     serial: 'SN-C9500-X123',
     firmware: 'IOS-XE 17.6.3',
     uptime: '142 days, 4 hours',
@@ -32,7 +39,10 @@ const infrastructureDevices = [
     temp: '42°C',
     ports: '48x 10G, 4x 40G',
     lastBackup: '2026-04-01 02:00',
-    owner: 'Network Engineering'
+    owner: 'Network Engineering',
+    criticality: 'Critical',
+    purchaseDate: '2023-05-12',
+    warrantyExpiry: '2028-05-12'
   },
   { 
     id: 'INF-102', 
@@ -42,7 +52,12 @@ const infrastructureDevices = [
     type: 'Router', 
     status: 'Active', 
     site: 'DC-A',
+    rack: 'R-01',
+    uPosition: '14U',
     ip: '10.0.1.2',
+    mask: '255.255.255.0',
+    gateway: '10.0.1.254',
+    vlan: '10 (Management)',
     serial: 'SN-ASR1K-Y456',
     firmware: 'IOS-XE 17.3.4',
     uptime: '89 days, 12 hours',
@@ -51,7 +66,10 @@ const infrastructureDevices = [
     temp: '48°C',
     ports: '6x 1G, 2x 10G',
     lastBackup: '2026-04-01 03:00',
-    owner: 'Network Engineering'
+    owner: 'Network Engineering',
+    criticality: 'Critical',
+    purchaseDate: '2022-11-20',
+    warrantyExpiry: '2027-11-20'
   },
   { 
     id: 'INF-103', 
@@ -61,7 +79,12 @@ const infrastructureDevices = [
     type: 'Switch', 
     status: 'Active', 
     site: 'Branch-B',
+    rack: 'B1-R02',
+    uPosition: '05U',
     ip: '10.2.1.10',
+    mask: '255.255.255.0',
+    gateway: '10.2.1.1',
+    vlan: '20 (Users)',
     serial: 'SN-ARUBA-Z789',
     firmware: 'AOS-CX 10.08',
     uptime: '210 days, 1 hour',
@@ -70,7 +93,10 @@ const infrastructureDevices = [
     temp: '39°C',
     ports: '48x 1G PoE+, 4x 10G',
     lastBackup: '2026-03-31 23:00',
-    owner: 'IT Support'
+    owner: 'IT Support',
+    criticality: 'Medium',
+    purchaseDate: '2024-01-15',
+    warrantyExpiry: '2029-01-15'
   },
   { 
     id: 'INF-104', 
@@ -80,7 +106,12 @@ const infrastructureDevices = [
     type: 'Switch', 
     status: 'Active', 
     site: 'DC-A',
+    rack: 'R-05',
+    uPosition: '22U',
     ip: '10.0.2.11',
+    mask: '255.255.255.0',
+    gateway: '10.0.2.1',
+    vlan: '100 (Storage)',
     serial: 'SN-ARI-W012',
     firmware: 'EOS 4.27.1F',
     uptime: '45 days, 18 hours',
@@ -89,7 +120,10 @@ const infrastructureDevices = [
     temp: '45°C',
     ports: '48x 25G, 6x 100G',
     lastBackup: '2026-04-01 01:00',
-    owner: 'DC Ops'
+    owner: 'DC Ops',
+    criticality: 'High',
+    purchaseDate: '2023-08-30',
+    warrantyExpiry: '2026-08-30'
   },
   { 
     id: 'INF-105', 
@@ -99,7 +133,12 @@ const infrastructureDevices = [
     type: 'Router', 
     status: 'Active', 
     site: 'DC-B',
+    rack: 'B-R01',
+    uPosition: '10U',
     ip: '10.1.1.1',
+    mask: '255.255.255.0',
+    gateway: '10.1.1.254',
+    vlan: '10 (Management)',
     serial: 'SN-HUA-V345',
     firmware: 'VRP 8.180',
     uptime: '12 days, 6 hours',
@@ -108,7 +147,10 @@ const infrastructureDevices = [
     temp: '52°C',
     ports: '8x 10G, 2x 40G',
     lastBackup: '2026-04-01 04:00',
-    owner: 'Network Engineering'
+    owner: 'Network Engineering',
+    criticality: 'Critical',
+    purchaseDate: '2024-02-10',
+    warrantyExpiry: '2027-02-10'
   },
   { 
     id: 'INF-106', 
@@ -118,7 +160,12 @@ const infrastructureDevices = [
     type: 'Server', 
     status: 'Active', 
     site: 'DC-A',
+    rack: 'R-08',
+    uPosition: '04U',
     ip: '10.0.5.50',
+    mask: '255.255.255.0',
+    gateway: '10.0.5.1',
+    vlan: '50 (Apps)',
     serial: 'SN-HPE-U678',
     firmware: 'iLO 5 v2.44',
     uptime: '305 days, 22 hours',
@@ -127,7 +174,10 @@ const infrastructureDevices = [
     temp: '35°C',
     ports: '4x 1G, 2x 10G',
     lastBackup: '2026-04-01 00:00',
-    owner: 'Server Team'
+    owner: 'Server Team',
+    criticality: 'High',
+    purchaseDate: '2021-06-15',
+    warrantyExpiry: '2026-06-15'
   },
   { 
     id: 'INF-107', 
@@ -137,7 +187,12 @@ const infrastructureDevices = [
     type: 'Server', 
     status: 'Warning', 
     site: 'DC-B',
+    rack: 'B-R05',
+    uPosition: '08U',
     ip: '10.1.5.60',
+    mask: '255.255.255.0',
+    gateway: '10.1.5.1',
+    vlan: '60 (DB)',
     serial: 'SN-DELL-T901',
     firmware: 'iDRAC9 v5.10',
     uptime: '15 days, 3 hours',
@@ -146,7 +201,10 @@ const infrastructureDevices = [
     temp: '58°C',
     ports: '2x 10G, 2x 25G',
     lastBackup: '2026-03-31 22:00',
-    owner: 'DBA Team'
+    owner: 'DBA Team',
+    criticality: 'Critical',
+    purchaseDate: '2022-03-12',
+    warrantyExpiry: '2027-03-12'
   },
   { 
     id: 'INF-108', 
@@ -156,7 +214,12 @@ const infrastructureDevices = [
     type: 'Firewall', 
     status: 'Active', 
     site: 'DC-A',
+    rack: 'R-01',
+    uPosition: '01U',
     ip: '10.0.0.1',
+    mask: '255.255.255.0',
+    gateway: '10.0.0.254',
+    vlan: '1 (Untagged)',
     serial: 'SN-FORTI-S234',
     firmware: 'FortiOS 7.0.5',
     uptime: '412 days, 10 hours',
@@ -165,7 +228,10 @@ const infrastructureDevices = [
     temp: '44°C',
     ports: '22x 1G, 2x 10G',
     lastBackup: '2026-04-01 05:00',
-    owner: 'Security Team'
+    owner: 'Security Team',
+    criticality: 'Critical',
+    purchaseDate: '2020-09-10',
+    warrantyExpiry: '2025-09-10'
   },
   { 
     id: 'INF-109', 
@@ -175,7 +241,12 @@ const infrastructureDevices = [
     type: 'Server', 
     status: 'Offline', 
     site: 'DC-B',
+    rack: 'B-R10',
+    uPosition: '02U',
     ip: '10.1.10.100',
+    mask: '255.255.255.0',
+    gateway: '10.1.10.1',
+    vlan: '100 (Backup)',
     serial: 'SN-HPE-R567',
     firmware: 'v4.3.2',
     uptime: '0 days',
@@ -184,7 +255,10 @@ const infrastructureDevices = [
     temp: '22°C',
     ports: '4x 1G, 2x 10G',
     lastBackup: '2026-03-25 01:00',
-    owner: 'Backup Team'
+    owner: 'Backup Team',
+    criticality: 'Medium',
+    purchaseDate: '2023-12-05',
+    warrantyExpiry: '2028-12-05'
   },
 ];
 
@@ -264,297 +338,127 @@ const getTypeIcon = (type: string) => {
 };
 
 export function Infrastructure() {
+  const [devices, setDevices] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('general');
+  const [groupBy, setGroupBy] = useState<string>('None');
+  const [secondaryGroupBy, setSecondaryGroupBy] = useState<string>('None');
   const [filters, setFilters] = useState({
     type: 'All',
     vendor: 'All',
     site: 'All',
-    status: 'All'
+    status: 'All',
+    criticality: 'All',
+    owner: 'All'
   });
   const navigate = useNavigate();
 
-  const statusCounts = infrastructureDevices.reduce((acc, device) => {
+  useEffect(() => {
+    const q = query(collection(db, 'infrastructure'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+      if (deviceList.length === 0) {
+        // Seed initial data if empty
+        initialInfrastructureDevices.forEach(async (device) => {
+          await setDoc(doc(db, 'infrastructure', device.id), device);
+        });
+      } else {
+        setDevices(deviceList);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const statusCounts = devices.reduce((acc, device) => {
     acc[device.status] = (acc[device.status] || 0) + 1;
     return acc;
   }, { Active: 0, Warning: 0, Offline: 0 } as Record<string, number>);
 
-  const uniqueTypes = ['All', ...new Set(infrastructureDevices.map(d => d.type))];
-  const uniqueVendors = ['All', ...new Set(infrastructureDevices.map(d => d.vendor))];
-  const uniqueSites = ['All', ...new Set(infrastructureDevices.map(d => d.site))];
-  const uniqueStatuses = ['All', ...new Set(infrastructureDevices.map(d => d.status))];
+  const uniqueTypes = ['All', ...new Set(devices.map(d => d.type))];
+  const uniqueVendors = ['All', ...new Set(devices.map(d => d.vendor))];
+  const uniqueSites = ['All', ...new Set(devices.map(d => d.site))];
+  const uniqueStatuses = ['All', ...new Set(devices.map(d => d.status))];
+  const uniqueCriticalities = ['All', 'Critical', 'High', 'Medium', 'Low'];
+  const uniqueOwners = ['All', ...new Set(devices.map(d => d.owner))];
 
-  const filteredDevices = infrastructureDevices.filter(device => {
+  const filteredDevices = devices.filter(device => {
     const matchesSearch = device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          device.model.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filters.type === 'All' || device.type === filters.type;
     const matchesVendor = filters.vendor === 'All' || device.vendor === filters.vendor;
     const matchesSite = filters.site === 'All' || device.site === filters.site;
     const matchesStatus = filters.status === 'All' || device.status === filters.status;
+    const matchesCriticality = filters.criticality === 'All' || device.criticality === filters.criticality;
+    const matchesOwner = filters.owner === 'All' || device.owner === filters.owner;
 
-    return matchesSearch && matchesType && matchesVendor && matchesSite && matchesStatus;
+    return matchesSearch && matchesType && matchesVendor && matchesSite && matchesStatus && matchesCriticality && matchesOwner;
   });
 
-  const selectedDevice = infrastructureDevices.find(d => d.id === selectedDeviceId);
+  const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+  const deviceModelInfo = modelCatalog.find(m => m.model === selectedDevice?.model);
 
-  if (selectedDevice) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={() => setSelectedDeviceId(null)}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight flex items-center">
-                {getTypeIcon(selectedDevice.type)}
-                {selectedDevice.name}
-              </h1>
-              <div className="flex items-center space-x-2 mt-1">
-                <Badge variant={
-                  selectedDevice.status === 'Active' ? 'success' : 
-                  selectedDevice.status === 'Warning' ? 'warning' : 'destructive'
-                }>
-                  {selectedDevice.status}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{selectedDevice.id} • {selectedDevice.site}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline">Web Console</Button>
-            <Button variant="outline">SSH</Button>
-            <Button>Edit Details</Button>
-          </div>
-        </div>
+  // Grouping logic
+  const getGroupedDevices = () => {
+    if (groupBy === 'None') return { 'All Devices': filteredDevices };
 
-        <Tabs className="w-full">
-          <div className="overflow-x-auto pb-2">
-            <TabsList className="w-max sm:w-full justify-start sm:justify-center">
-              <TabsTrigger active={activeTab === 'general'} onClick={() => setActiveTab('general')}>General</TabsTrigger>
-              <TabsTrigger active={activeTab === 'technical'} onClick={() => setActiveTab('technical')}>Technical</TabsTrigger>
-              <TabsTrigger active={activeTab === 'health'} onClick={() => setActiveTab('health')}>Health & Performance</TabsTrigger>
-              <TabsTrigger active={activeTab === 'maintenance'} onClick={() => setActiveTab('maintenance')}>Maintenance</TabsTrigger>
-            </TabsList>
-          </div>
+    const groups: Record<string, any> = {};
+    
+    filteredDevices.forEach(device => {
+      const primaryKey = (device as any)[groupBy.toLowerCase()] || 'Unknown';
+      
+      if (!groups[primaryKey]) {
+        groups[primaryKey] = secondaryGroupBy === 'None' ? [] : {};
+      }
 
-          <TabsContent className={activeTab === 'general' ? 'block' : 'hidden'}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
-                    <Info className="w-4 h-4 mr-2" />
-                    System Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Vendor & Model</div>
-                    <div className="font-medium">{selectedDevice.vendor} {selectedDevice.model}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Serial Number</div>
-                    <div className="font-mono">{selectedDevice.serial}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Asset ID</div>
-                    <div className="font-medium">{selectedDevice.id}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Device Type</div>
-                    <div className="font-medium">{selectedDevice.type}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Asset Owner</div>
-                    <div className="font-medium">{selectedDevice.owner}</div>
-                  </div>
-                </CardContent>
-              </Card>
+      if (secondaryGroupBy === 'None') {
+        groups[primaryKey].push(device);
+      } else {
+        const secondaryKey = (device as any)[secondaryGroupBy.toLowerCase()] || 'Unknown';
+        if (!groups[primaryKey][secondaryKey]) {
+          groups[primaryKey][secondaryKey] = [];
+        }
+        groups[primaryKey][secondaryKey].push(device);
+      }
+    });
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
-                    <Globe className="w-4 h-4 mr-2" />
-                    Network & Location
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Management IP</div>
-                    <div className="font-mono">{selectedDevice.ip}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Site / Data Center</div>
-                    <div className="font-medium">{selectedDevice.site}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Uptime</div>
-                    <div className="font-medium flex items-center">
-                      <Clock className="w-3 h-3 mr-1 text-muted-foreground" />
-                      {selectedDevice.uptime}
-                    </div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Last Config Backup</div>
-                    <div className="font-medium">{selectedDevice.lastBackup}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+    return groups;
+  };
 
-          <TabsContent className={activeTab === 'technical' ? 'block' : 'hidden'}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
-                    <Cpu className="w-4 h-4 mr-2" />
-                    Hardware Specs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Firmware Version</div>
-                    <div className="font-medium">{selectedDevice.firmware}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Interfaces / Ports</div>
-                    <div className="font-medium">{selectedDevice.ports}</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Power Supply</div>
-                    <div className="font-medium">Dual Redundant (Active/Active)</div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Storage</div>
-                    <div className="font-medium">256GB NVMe SSD</div>
-                  </div>
-                </CardContent>
-              </Card>
+  const groupedDevices = getGroupedDevices();
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center">
-                    <Shield className="w-4 h-4 mr-2" />
-                    Security & Compliance
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">SSH Access</div>
-                    <div><Badge variant="success" className="h-4 text-[8px]">Enabled</Badge></div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">SNMP v3</div>
-                    <div><Badge variant="success" className="h-4 text-[8px]">Configured</Badge></div>
-                    <div className="text-muted-foreground uppercase font-bold text-[10px]">Compliance Status</div>
-                    <div><Badge variant="outline" className="h-4 text-[8px]">Compliant</Badge></div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+  const calculateHealthScore = (device: any) => {
+    if (device.status === 'Offline') return 0;
+    
+    let score = 100;
+    
+    // CPU penalty
+    const cpuVal = parseInt(device.cpu);
+    if (cpuVal > 60) score -= (cpuVal - 60) * 0.5;
+    
+    // Memory penalty
+    const memVal = parseInt(device.memory);
+    if (memVal > 70) score -= (memVal - 70) * 1;
+    
+    // Temp penalty
+    const tempVal = parseInt(device.temp);
+    if (tempVal > 50) score -= (tempVal - 50) * 2;
+    
+    // Status penalty
+    if (device.status === 'Warning') score -= 20;
+    
+    return Math.max(0, Math.round(score));
+  };
 
-          <TabsContent className={activeTab === 'health' ? 'block' : 'hidden'}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="md:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-lg">Real-time Metrics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">CPU Usage</span>
-                      <span className="font-bold">{selectedDevice.cpu}</span>
-                    </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full",
-                          parseInt(selectedDevice.cpu) > 70 ? "bg-red-500" : "bg-green-500"
-                        )} 
-                        style={{ width: selectedDevice.cpu }} 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">Memory Usage</span>
-                      <span className="font-bold">{selectedDevice.memory}</span>
-                    </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full",
-                          parseInt(selectedDevice.memory) > 85 ? "bg-red-500" : "bg-green-500"
-                        )} 
-                        style={{ width: selectedDevice.memory }} 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground font-medium">Temperature</span>
-                      <span className="font-bold">{selectedDevice.temp}</span>
-                    </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full",
-                          parseInt(selectedDevice.temp) > 55 ? "bg-red-500" : "bg-blue-500"
-                        )} 
-                        style={{ width: `${(parseInt(selectedDevice.temp) / 80) * 100}%` }} 
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Status Alerts</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {selectedDevice.status === 'Warning' ? (
-                      <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-800 flex items-start">
-                        <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span>High memory utilization detected in the last 15 minutes. Threshold exceeded 85%.</span>
-                      </div>
-                    ) : selectedDevice.status === 'Offline' ? (
-                      <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-800 flex items-start">
-                        <XCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span>Device is unreachable via ICMP and SNMP. Check power and physical connectivity.</span>
-                      </div>
-                    ) : (
-                      <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-xs text-green-800 flex items-start">
-                        <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span>All systems operational. No active alerts for this device.</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent className={activeTab === 'maintenance' ? 'block' : 'hidden'}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Maintenance History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-4 p-3 border rounded-lg">
-                    <div className="p-2 bg-blue-100 rounded-full"><Clock className="w-4 h-4 text-blue-600" /></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold">Firmware Upgrade</p>
-                      <p className="text-xs text-muted-foreground">Upgraded from v17.3 to v17.6.3</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">Jan 12, 2026 • Admin</p>
-                    </div>
-                    <Badge variant="outline">Success</Badge>
-                  </div>
-                  <div className="flex items-start space-x-4 p-3 border rounded-lg">
-                    <div className="p-2 bg-green-100 rounded-full"><CheckCircle2 className="w-4 h-4 text-green-600" /></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold">Annual Physical Audit</p>
-                      <p className="text-xs text-muted-foreground">Verified serial number and rack position.</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">Mar 01, 2026 • DC Ops</p>
-                    </div>
-                    <Badge variant="outline">Verified</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
+  const getHealthBadgeVariant = (score: number) => {
+    if (score >= 80) return 'success';
+    if (score >= 50) return 'warning';
+    return 'destructive';
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6 relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center">
@@ -618,7 +522,7 @@ export function Infrastructure() {
             <div className="flex justify-between items-start mb-2">
               <p className="text-xs text-muted-foreground font-medium">Device Status Overview</p>
               <Badge variant="outline" className="text-[9px] h-4 px-1 font-mono">
-                Total: {infrastructureDevices.length}
+                Total: {devices.length}
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-2">
@@ -642,15 +546,15 @@ export function Infrastructure() {
             <div className="mt-3 h-1.5 w-full flex rounded-full overflow-hidden bg-muted">
               <div 
                 className="h-full bg-green-500" 
-                style={{ width: `${(statusCounts.Active / infrastructureDevices.length) * 100}%` }} 
+                style={{ width: `${(statusCounts.Active / devices.length) * 100}%` }} 
               />
               <div 
                 className="h-full bg-yellow-500" 
-                style={{ width: `${(statusCounts.Warning / infrastructureDevices.length) * 100}%` }} 
+                style={{ width: `${(statusCounts.Warning / devices.length) * 100}%` }} 
               />
               <div 
                 className="h-full bg-red-500" 
-                style={{ width: `${(statusCounts.Offline / infrastructureDevices.length) * 100}%` }} 
+                style={{ width: `${(statusCounts.Offline / devices.length) * 100}%` }} 
               />
             </div>
 
@@ -680,7 +584,7 @@ export function Infrastructure() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase text-muted-foreground">Type</label>
                   <select 
@@ -721,6 +625,101 @@ export function Infrastructure() {
                     {uniqueStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Criticality</label>
+                  <select 
+                    className="w-full bg-muted/50 border rounded-md px-2 py-1 text-xs outline-none"
+                    value={filters.criticality}
+                    onChange={(e) => setFilters(prev => ({ ...prev, criticality: e.target.value }))}
+                  >
+                    {uniqueCriticalities.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Owner</label>
+                  <select 
+                    className="w-full bg-muted/50 border rounded-md px-2 py-1 text-xs outline-none"
+                    value={filters.owner}
+                    onChange={(e) => setFilters(prev => ({ ...prev, owner: e.target.value }))}
+                  >
+                    {uniqueOwners.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {(filters.type !== 'All' || filters.vendor !== 'All' || filters.site !== 'All' || filters.status !== 'All' || filters.criticality !== 'All' || filters.owner !== 'All' || searchTerm !== '') && (
+                <div className="flex items-center justify-between pt-2 border-t border-muted/30">
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(filters).map(([key, value]) => value !== 'All' && (
+                      <Badge key={key} variant="outline" className="text-[10px] py-0 h-5 flex items-center gap-1">
+                        <span className="capitalize text-muted-foreground">{key}:</span> {value}
+                        <X 
+                          className="w-2.5 h-2.5 cursor-pointer hover:text-red-500" 
+                          onClick={() => setFilters(prev => ({ ...prev, [key]: 'All' }))}
+                        />
+                      </Badge>
+                    ))}
+                    {searchTerm && (
+                      <Badge variant="outline" className="text-[10px] py-0 h-5 flex items-center gap-1">
+                        <span className="text-muted-foreground">Search:</span> {searchTerm}
+                        <X 
+                          className="w-2.5 h-2.5 cursor-pointer hover:text-red-500" 
+                          onClick={() => setSearchTerm('')}
+                        />
+                      </Badge>
+                    )}
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-[10px] text-muted-foreground hover:text-red-500"
+                    onClick={() => {
+                      setFilters({
+                        type: 'All',
+                        vendor: 'All',
+                        site: 'All',
+                        status: 'All',
+                        criticality: 'All',
+                        owner: 'All'
+                      });
+                      setSearchTerm('');
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-muted/30">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Group By</label>
+                  <select 
+                    className="w-full bg-muted/50 border rounded-md px-2 py-1 text-xs outline-none"
+                    value={groupBy}
+                    onChange={(e) => setGroupBy(e.target.value)}
+                  >
+                    <option value="None">None</option>
+                    <option value="Site">Site</option>
+                    <option value="Type">Type</option>
+                    <option value="Vendor">Vendor</option>
+                    <option value="Status">Status</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground">Then By</label>
+                  <select 
+                    className="w-full bg-muted/50 border rounded-md px-2 py-1 text-xs outline-none"
+                    value={secondaryGroupBy}
+                    onChange={(e) => setSecondaryGroupBy(e.target.value)}
+                    disabled={groupBy === 'None'}
+                  >
+                    <option value="None">None</option>
+                    <option value="Site">Site</option>
+                    <option value="Type">Type</option>
+                    <option value="Vendor">Vendor</option>
+                    <option value="Status">Status</option>
+                  </select>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -734,52 +733,143 @@ export function Infrastructure() {
                   <TableHead>Model</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Site</TableHead>
+                  <TableHead className="hidden lg:table-cell">Last Backup</TableHead>
+                  <TableHead>Health</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDevices.map((device) => (
-                  <TableRow 
-                    key={device.id} 
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedDeviceId(device.id)}
-                  >
-                    <TableCell className="font-semibold">{device.name}</TableCell>
-                    <TableCell className="hidden md:table-cell font-mono text-xs">{device.serial}</TableCell>
-                    <TableCell className="text-sm">{device.vendor}</TableCell>
-                    <TableCell className="text-sm">{device.model}</TableCell>
-                    <TableCell className="text-sm">
-                      <div className="flex items-center">
-                        {getTypeIcon(device.type)}
-                        {device.type}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{device.site}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        device.status === 'Active' ? 'success' : 
-                        device.status === 'Warning' ? 'warning' : 'destructive'
-                      }>
-                        {device.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedDeviceId(device.id);
-                        }}
-                      >
-                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                        Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {Object.entries(groupedDevices).map(([primaryKey, primaryValue]) => {
+                  if (Array.isArray(primaryValue)) {
+                    // Single level grouping or no grouping
+                    return (
+                      <React.Fragment key={primaryKey}>
+                        {groupBy !== 'None' && (
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell colSpan={10} className="py-2 px-4 font-bold text-xs uppercase text-muted-foreground">
+                              {primaryKey} ({primaryValue.length})
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {primaryValue.map((device) => (
+                          <TableRow 
+                            key={device.id} 
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => setSelectedDeviceId(device.id)}
+                          >
+                            <TableCell className="font-semibold">{device.name}</TableCell>
+                            <TableCell className="hidden md:table-cell font-mono text-xs">{device.serial}</TableCell>
+                            <TableCell className="text-sm">{device.vendor}</TableCell>
+                            <TableCell className="text-sm">{device.model}</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex items-center">
+                                {getTypeIcon(device.type)}
+                                {device.type}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{device.site}</TableCell>
+                            <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{device.lastBackup}</TableCell>
+                            <TableCell>
+                              <Badge variant={getHealthBadgeVariant(calculateHealthScore(device))} className="font-mono text-[10px]">
+                                {calculateHealthScore(device)}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                device.status === 'Active' ? 'success' : 
+                                device.status === 'Warning' ? 'warning' : 'destructive'
+                              }>
+                                {device.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDeviceId(device.id);
+                                }}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                                Details
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    );
+                  } else {
+                    // Two level grouping
+                    return (
+                      <React.Fragment key={primaryKey}>
+                        <TableRow className="bg-muted/40 hover:bg-muted/40">
+                          <TableCell colSpan={10} className="py-2 px-4 font-bold text-sm uppercase text-primary">
+                            {primaryKey}
+                          </TableCell>
+                        </TableRow>
+                        {Object.entries(primaryValue).map(([secondaryKey, secondaryValue]: [string, any]) => (
+                          <React.Fragment key={secondaryKey}>
+                            <TableRow className="bg-muted/20 hover:bg-muted/20">
+                              <TableCell colSpan={10} className="py-1 px-8 font-semibold text-xs uppercase text-muted-foreground">
+                                {secondaryKey} ({secondaryValue.length})
+                              </TableCell>
+                            </TableRow>
+                            {secondaryValue.map((device: any) => (
+                              <TableRow 
+                                key={device.id} 
+                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => setSelectedDeviceId(device.id)}
+                              >
+                                <TableCell className="font-semibold pl-12">{device.name}</TableCell>
+                                <TableCell className="hidden md:table-cell font-mono text-xs">{device.serial}</TableCell>
+                                <TableCell className="text-sm">{device.vendor}</TableCell>
+                                <TableCell className="text-sm">{device.model}</TableCell>
+                                <TableCell className="text-sm">
+                                  <div className="flex items-center">
+                                    {getTypeIcon(device.type)}
+                                    {device.type}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm">{device.site}</TableCell>
+                                <TableCell className="hidden lg:table-cell text-xs font-mono text-muted-foreground">{device.lastBackup}</TableCell>
+                                <TableCell>
+                                  <Badge variant={getHealthBadgeVariant(calculateHealthScore(device))} className="font-mono text-[10px]">
+                                    {calculateHealthScore(device)}%
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={
+                                    device.status === 'Active' ? 'success' : 
+                                    device.status === 'Warning' ? 'warning' : 'destructive'
+                                  }>
+                                    {device.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button 
+                                    variant="ghost" 
+                                                                        size="sm" 
+                                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedDeviceId(device.id);
+                                    }}
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                                    Details
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </React.Fragment>
+                    );
+                  }
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -899,6 +989,400 @@ export function Infrastructure() {
           </Card>
         </div>
       </div>
+
+      {/* Device Detail Modal Overlay */}
+      {selectedDevice && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setSelectedDeviceId(null)}
+        >
+          <div 
+            className="bg-background border rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-6 border-b flex items-center justify-between bg-muted/30">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  {getTypeIcon(selectedDevice.type)}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">{selectedDevice.name}</h2>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Badge variant={
+                      selectedDevice.status === 'Active' ? 'success' : 
+                      selectedDevice.status === 'Warning' ? 'warning' : 'destructive'
+                    }>
+                      {selectedDevice.status}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">{selectedDevice.id} • {selectedDevice.site}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" className="hidden sm:flex">Web Console</Button>
+                <Button variant="outline" size="sm" className="hidden sm:flex">SSH</Button>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedDeviceId(null)} className="rounded-full">
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <Tabs className="w-full">
+                <TabsList className="w-full justify-start border-b rounded-none bg-transparent h-auto p-0 mb-6">
+                  <TabsTrigger 
+                    active={activeTab === 'general'} 
+                    onClick={() => setActiveTab('general')}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                  >
+                    General
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    active={activeTab === 'network'} 
+                    onClick={() => setActiveTab('network')}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                  >
+                    Network
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    active={activeTab === 'technical'} 
+                    onClick={() => setActiveTab('technical')}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                  >
+                    Technical
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    active={activeTab === 'health'} 
+                    onClick={() => setActiveTab('health')}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                  >
+                    Health
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    active={activeTab === 'maintenance'} 
+                    onClick={() => setActiveTab('maintenance')}
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2"
+                  >
+                    Maintenance
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent className={activeTab === 'general' ? 'block space-y-6' : 'hidden'}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Info className="w-4 h-4 mr-2 text-primary" />
+                          System Information
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Vendor & Model</div>
+                          <div className="font-medium">{selectedDevice.vendor} {selectedDevice.model}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Serial Number</div>
+                          <div className="font-mono">{selectedDevice.serial}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Asset ID</div>
+                          <div className="font-medium">{selectedDevice.id}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Device Type</div>
+                          <div className="font-medium">{selectedDevice.type}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Criticality</div>
+                          <div>
+                            <Badge variant={selectedDevice.criticality === 'Critical' ? 'destructive' : selectedDevice.criticality === 'High' ? 'warning' : 'outline'} className="h-4 text-[8px]">
+                              {selectedDevice.criticality}
+                            </Badge>
+                          </div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Asset Owner</div>
+                          <div className="font-medium">{selectedDevice.owner}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Health Score</div>
+                          <div>
+                            <Badge variant={getHealthBadgeVariant(calculateHealthScore(selectedDevice))} className="h-4 text-[8px] font-mono">
+                              {calculateHealthScore(selectedDevice)}%
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Globe className="w-4 h-4 mr-2 text-primary" />
+                          Location & Lifecycle
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Site / Data Center</div>
+                          <div className="font-medium">{selectedDevice.site}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Rack / Position</div>
+                          <div className="font-medium">{selectedDevice.rack} / {selectedDevice.uPosition}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Purchase Date</div>
+                          <div className="font-medium">{selectedDevice.purchaseDate}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Warranty Expiry</div>
+                          <div className="font-medium">{selectedDevice.warrantyExpiry}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Uptime</div>
+                          <div className="font-medium flex items-center">
+                            <Clock className="w-3 h-3 mr-1 text-muted-foreground" />
+                            {selectedDevice.uptime}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                <TabsContent className={activeTab === 'network' ? 'block space-y-6' : 'hidden'}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Network className="w-4 h-4 mr-2 text-primary" />
+                          IP Configuration
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Management IP</div>
+                          <div className="font-mono font-bold">{selectedDevice.ip}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Subnet Mask</div>
+                          <div className="font-mono">{selectedDevice.mask}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Gateway</div>
+                          <div className="font-mono">{selectedDevice.gateway}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">VLAN</div>
+                          <div className="font-medium">{selectedDevice.vlan}</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Activity className="w-4 h-4 mr-2 text-primary" />
+                          Connectivity Status
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">ICMP Ping</div>
+                          <div><Badge variant="success" className="h-4 text-[8px]">Reachable</Badge></div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">SNMP Response</div>
+                          <div><Badge variant="success" className="h-4 text-[8px]">Active</Badge></div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Last Backup</div>
+                          <div className="font-medium">{selectedDevice.lastBackup}</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                <TabsContent className={activeTab === 'technical' ? 'block space-y-6' : 'hidden'}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Cpu className="w-4 h-4 mr-2 text-primary" />
+                          Hardware Specs
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Firmware</div>
+                          <div className="font-medium">{selectedDevice.firmware}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Interfaces</div>
+                          <div className="font-medium">{selectedDevice.ports}</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Power</div>
+                          <div className="font-medium">Dual Redundant</div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Storage</div>
+                          <div className="font-medium">256GB NVMe</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center">
+                          <Shield className="w-4 h-4 mr-2 text-primary" />
+                          Security & Compliance
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">SSH Access</div>
+                          <div><Badge variant="success" className="h-3 text-[7px]">Enabled</Badge></div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">SNMP v3</div>
+                          <div><Badge variant="success" className="h-3 text-[7px]">Configured</Badge></div>
+                          <div className="text-muted-foreground uppercase font-bold text-[9px]">Compliance</div>
+                          <div><Badge variant="outline" className="h-3 text-[7px]">Compliant</Badge></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {deviceModelInfo && (
+                      <Card className="md:col-span-2">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm font-bold flex items-center">
+                            <Package className="w-4 h-4 mr-2 text-primary" />
+                            Model Catalog Specifications
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">Category</p>
+                              <p className="font-medium">{deviceModelInfo.category}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">Power Profile</p>
+                              <p className="font-medium">{deviceModelInfo.power}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">MTBF</p>
+                              <p className="font-medium">{deviceModelInfo.mtbf}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">Warranty Type</p>
+                              <p className="font-medium">{deviceModelInfo.warranty}</p>
+                            </div>
+                            <div className="md:col-span-2">
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">Standard Features</p>
+                              <p className="font-medium">{deviceModelInfo.features}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">End of Life</p>
+                              <p className="font-medium text-orange-600">{deviceModelInfo.eol}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground uppercase font-bold text-[8px]">End of Support</p>
+                              <p className="font-medium text-red-600">{deviceModelInfo.eos}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent className={activeTab === 'health' ? 'block space-y-6' : 'hidden'}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="md:col-span-2">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold">Real-time Metrics</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground font-medium">CPU Usage</span>
+                            <span className="font-bold">{selectedDevice.cpu}</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-500",
+                                parseInt(selectedDevice.cpu) > 70 ? "bg-red-500" : "bg-green-500"
+                              )} 
+                              style={{ width: selectedDevice.cpu }} 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground font-medium">Memory Usage</span>
+                            <span className="font-bold">{selectedDevice.memory}</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-500",
+                                parseInt(selectedDevice.memory) > 85 ? "bg-red-500" : "bg-green-500"
+                              )} 
+                              style={{ width: selectedDevice.memory }} 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground font-medium">Temperature</span>
+                            <span className="font-bold">{selectedDevice.temp}</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-500",
+                                parseInt(selectedDevice.temp) > 55 ? "bg-red-500" : "bg-blue-500"
+                              )} 
+                              style={{ width: `${(parseInt(selectedDevice.temp) / 80) * 100}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold">Alerts</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {selectedDevice.status === 'Warning' ? (
+                            <div className="p-2 bg-yellow-50 border border-yellow-100 rounded text-[9px] text-yellow-800 flex items-start">
+                              <AlertTriangle className="w-3 h-3 mr-1.5 mt-0.5 flex-shrink-0" />
+                              <span>High memory utilization detected. Threshold exceeded 85%.</span>
+                            </div>
+                          ) : selectedDevice.status === 'Offline' ? (
+                            <div className="p-2 bg-red-50 border border-red-100 rounded text-[9px] text-red-800 flex items-start">
+                              <XCircle className="w-3 h-3 mr-1.5 mt-0.5 flex-shrink-0" />
+                              <span>Device is unreachable. Check power and connectivity.</span>
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-green-50 border border-green-100 rounded text-[9px] text-green-800 flex items-start">
+                              <CheckCircle2 className="w-3 h-3 mr-1.5 mt-0.5 flex-shrink-0" />
+                              <span>All systems operational.</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                <TabsContent className={activeTab === 'maintenance' ? 'block space-y-6' : 'hidden'}>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3 p-2.5 border rounded-lg bg-muted/20">
+                      <div className="p-1.5 bg-blue-100 rounded-full"><Clock className="w-3 h-3 text-blue-600" /></div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold">Firmware Upgrade</p>
+                        <p className="text-[10px] text-muted-foreground">Upgraded to v17.6.3</p>
+                        <p className="text-[8px] text-muted-foreground mt-0.5">Jan 12, 2026</p>
+                      </div>
+                      <Badge variant="outline" className="text-[8px] h-4">Success</Badge>
+                    </div>
+                    <div className="flex items-start space-x-3 p-2.5 border rounded-lg bg-muted/20">
+                      <div className="p-1.5 bg-green-100 rounded-full"><CheckCircle2 className="w-3 h-3 text-green-600" /></div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold">Physical Audit</p>
+                        <p className="text-[10px] text-muted-foreground">Verified rack position.</p>
+                        <p className="text-[8px] text-muted-foreground mt-0.5">Mar 01, 2026</p>
+                      </div>
+                      <Badge variant="outline" className="text-[8px] h-4">Verified</Badge>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t bg-muted/10 flex justify-end space-x-2">
+              <Button variant="outline" size="sm" onClick={() => setSelectedDeviceId(null)}>Close</Button>
+              <Button size="sm">Edit Device</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

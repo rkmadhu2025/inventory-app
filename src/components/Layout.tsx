@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Server, FileCode2, ShieldAlert, CheckCircle, Settings, Bell, User, ClipboardList, Building2, Menu, X, Network, Terminal, Layers, Activity } from 'lucide-react';
+import { LayoutDashboard, Server, FileCode2, ShieldAlert, CheckCircle, Settings, Bell, User, ClipboardList, Building2, Menu, X, Network, Terminal, Layers, Activity, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useAuth } from './AuthProvider';
+import { Layout as LayoutIcon } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -22,6 +24,7 @@ const navItems = [
 export function Layout() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, signOut, isAdmin } = useAuth();
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
@@ -129,11 +132,23 @@ export function Layout() {
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-card"></span>
             </button>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                <User className="w-4 h-4" />
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-primary/20" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
+                <div className="hidden md:flex flex-col items-start -space-y-1">
+                  <span className="text-sm font-medium">{user?.displayName || 'User'}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">{isAdmin ? 'Admin' : 'User'}</span>
+                </div>
               </div>
-              <span className="hidden md:inline text-sm font-medium">Admin User</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={signOut}>
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </header>
